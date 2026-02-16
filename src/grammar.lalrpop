@@ -1,0 +1,58 @@
+use std::collections::HashMap;
+use lalrpop_util::ParseError;
+use crate::{Definitions, Definition, NodeDefinition, EdgeDefinition, Properties, SovsError};
+
+grammar;
+
+extern {
+  type Error = SovsError;
+}
+
+pub Spec: Definitions = <definitions:(<Definition>)*> =>? {
+  let mut node_defs = HashMap::<String, NodeDefinition>::new();
+  let mut edge_defs = HashMap::<String, EdgeDefinition>::new();
+  for def in definitions {
+    match def {
+      Definition::Node(id, node) => {
+        node_defs.insert(id.clone(), node)
+          .map_or(Ok(()), |_| Err(ParseError::User {
+            error: SovsError::DuplicateNode(id),
+          }))?;
+      },
+      Definition::Edge(id, edge) => {
+        edge_defs.insert(id.clone(), edge)
+          .map_or(Ok(()), |_| Err(ParseError::User {
+            error: SovsError::DuplicateEdge(id),
+          }))?;
+      }
+    }
+  }
+  Ok(Definitions {
+    nodes: node_defs,
+    edges: edge_defs,
+  })
+};
+
+Definition: Definition = {
+  "node" <id:Id> "{" <properties:Properties> "}" => Definition::Node(id.to_string(), NodeDefinition {
+    properties,
+  }),
+  "edge" <id:Id> "from" <from:Id> "to" <to:Id> "{" <properties:Properties> "}" => Definition::Edge(id.to_string(), EdgeDefinition {
+    from: from.to_string(),
+    to: to.to_string(),
+    properties,
+  })
+};
+
+Properties: Properties = {
+  <props:(<Id> ":" <Text> ";")*> => {
+    let mut final_props = Properties::new();
+    for (id, text) in props {
+      final_props.entry(id.to_string()).or_default().insert(text.to_string());
+    }
+    final_props
+  }
+}
+
+Id: &'input str = <r"[A-Za-z_][A-Za-z0-9_]*">;
+Text: &'input str = <l:r#""[^"]*""#> => l[1..l.len()-1].into();

@@ -1,0 +1,19 @@
+[package]
+name = "sovs-parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hashbag = "0.1.13"
+lalrpop-util = "0.23.0"
+thiserror = "2.0.18"
+
+[lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+unwrap_used = { level = "deny" }
+missing_panics_doc = { level = "allow" }
+too_many_lines = { level = "allow" }
+
+[build-dependencies]
+lalrpop = "0.23.0"
