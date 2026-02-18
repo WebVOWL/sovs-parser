@@ -11,7 +11,7 @@ lalrpop_mod!(
 
 pub type Properties = HashMap<String, HashBag<String>>;
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(Default, PartialEq, Eq, Clone, Debug)]
 pub(crate) struct Definitions {
     nodes: HashMap<String, NodeDefinition>,
     edges: HashMap<String, EdgeDefinition>,
@@ -81,6 +81,71 @@ impl TryFrom<Definitions> for Specification {
             nodes: value.nodes,
             edges: value.edges,
         })
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct SpecificationBuilder {
+    definitions: Definitions,
+}
+
+impl SpecificationBuilder {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a node to the specification
+    ///
+    /// # Errors
+    /// This method returns [`SovsError::DuplicateNode`] if a node with the given id already exists
+    /// in the specification
+    pub fn node(&mut self, id: String, properties: Properties) -> Result<&mut Self, SovsError> {
+        if self.definitions.nodes.contains_key(&id) {
+            return Err(SovsError::DuplicateNode(id));
+        }
+
+        self.definitions
+            .nodes
+            .insert(id, NodeDefinition { properties });
+
+        Ok(self)
+    }
+
+    /// Add an edge to the specification
+    ///
+    /// # Errors
+    /// This method returns [`SovsError::DuplicateEdge`] if an edge with the given id already exists
+    /// in the specification
+    pub fn edge(
+        &mut self,
+        id: String,
+        from: String,
+        to: String,
+        properties: Properties,
+    ) -> Result<&mut Self, SovsError> {
+        if self.definitions.edges.contains_key(&id) {
+            return Err(SovsError::DuplicateEdge(id));
+        }
+
+        self.definitions.edges.insert(
+            id,
+            EdgeDefinition {
+                from,
+                to,
+                properties,
+            },
+        );
+
+        Ok(self)
+    }
+
+    /// Build the specification
+    ///
+    /// # Errors
+    /// This method returns [`SovsError::UndefinedNode`] if any edge refers to an undefined node id
+    pub fn build(&mut self) -> Result<Specification, SovsError> {
+        self.definitions.clone().try_into()
     }
 }
 
