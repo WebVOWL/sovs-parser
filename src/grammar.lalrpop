@@ -48,7 +48,7 @@ Properties: Properties = {
   <props:(<Id> ":" <Text> ";")*> => {
     let mut final_props = Properties::new();
     for (id, text) in props {
-      final_props.entry(id.to_string()).or_default().insert(text.to_string());
+      final_props.0.entry(id.to_string()).or_default().insert(text.to_string());
     }
     final_props
   }

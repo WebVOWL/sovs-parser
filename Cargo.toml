@@ -5,7 +5,10 @@ edition = "2024"
 
 [dependencies]
 hashbag = "0.1.13"
+itertools = "0.14.0"
 lalrpop-util = "0.23.0"
+radguy = { git = "https://github.com/DATP7/radguy", version = "0.1.0", branch = "vowl-tweaks" }
+radguy-ccs = { git = "https://github.com/DATP7/radguy", version = "0.1.0", branch = "vowl-tweaks" }
 thiserror = "2.0.18"
 
 [lints.clippy]
