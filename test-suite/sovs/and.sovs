@@ -1,0 +1,8 @@
+node a { text: "A"; kind: "owl:intersectionOf"; }
+node b { text: "B"; kind: "owl:class"; }
+node c { text: "C"; kind: "owl:class"; }
+node d { text: "D"; kind: "owl:class"; }
+
+edge intB from b to a { kind: "setRelation"; }
+edge intC from c to a { kind: "setRelation"; }
+edge intD from d to a { kind: "setRelation"; }

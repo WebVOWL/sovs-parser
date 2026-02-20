@@ -6,6 +6,10 @@ use thiserror::Error;
 use crate::isomorphism::GraphSystem;
 
 mod isomorphism;
+mod test_suite;
+
+#[cfg(feature = "test-suite")]
+pub use test_suite::{TestCase, test_cases};
 
 lalrpop_mod!(
     #[allow(clippy::all, clippy::pedantic, clippy::nursery, clippy::unwrap_used)]
