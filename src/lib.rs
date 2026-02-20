@@ -6,6 +6,7 @@ use thiserror::Error;
 use crate::isomorphism::GraphSystem;
 
 mod isomorphism;
+#[cfg(feature = "test-suite")]
 mod test_suite;
 
 #[cfg(feature = "test-suite")]
