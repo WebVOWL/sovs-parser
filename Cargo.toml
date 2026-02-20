@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 hashbag = "0.1.13"
-include_dir = { version = "0.7.4", optional = false, features = ["glob"] }
+include_dir = { version = "0.7.4", optional = true, features = ["glob"] }
 itertools = "0.14.0"
 lalrpop-util = "0.23.0"
 radguy = { git = "https://github.com/DATP7/radguy", version = "0.1.0", branch = "vowl-tweaks" }
@@ -23,5 +23,4 @@ too_many_lines = { level = "allow" }
 lalrpop = "0.23.0"
 
 [features]
-# test-suite = ["dep:include_dir"]
-test-suite = []
+test-suite = ["dep:include_dir"]
