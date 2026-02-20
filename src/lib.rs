@@ -25,6 +25,28 @@ impl Properties {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn insert(&mut self, key: String, value: String) {
+        self.0.entry(key).or_default().insert(value);
+    }
+
+    pub fn get_single(&self, key: &str) -> Option<&str> {
+        let bag = self.0.get(key)?;
+        if bag.len() != 1 {
+            return None;
+        }
+        bag.iter().next().map(String::as_ref)
+    }
+}
+
+impl<const N: usize> From<[(&str, &str); N]> for Properties {
+    fn from(value: [(&str, &str); N]) -> Self {
+        let mut props = Self::default();
+        for (key, value) in value {
+            props.insert(key.to_string(), value.to_string());
+        }
+        props
+    }
 }
 
 #[derive(Default, PartialEq, Eq, Clone, Debug)]
