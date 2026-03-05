@@ -121,16 +121,25 @@ impl Specification {
     /// with different labelings
     #[must_use]
     pub fn is_isomorphic_to(&self, other: &Self) -> bool {
-        let Some((self_node, _)) = self.nodes.iter().next() else {
-            return other.nodes.is_empty();
-        };
+        if self.nodes.len() != other.nodes.len() || self.edges.len() != other.edges.len() {
+            return false;
+        }
+
+        let self_nodes = self.nodes.keys().cloned().collect::<Vec<_>>();
+        let other_nodes = other.nodes.keys().cloned().collect::<Vec<_>>();
 
         let mut system = GraphSystem::new(self.clone(), other.clone());
         let oracle = radguy::oracle::SMax::bitset();
 
-        other.nodes.keys().any(|other_node| {
-            let target = system.node_variable(self_node.clone(), other_node.clone());
-            !radguy::kleene_local(&mut system, target, &oracle).0
+        let matchings = isomorphism::matchings(&self_nodes, &other_nodes);
+
+        // PERF: for optimal performance, this should maybe become a variable in the graph so we
+        // can reuse work
+        matchings.into_iter().any(|matching| {
+            matching.into_iter().all(|(self_node, other_node)| {
+                let target = system.node_variable(self_node, other_node);
+                !radguy::kleene_local(&mut system, target, &oracle).0
+            })
         })
     }
 }
@@ -546,6 +555,25 @@ mod test {
                 edge e3 from c to a { text: "c"; }
                 "#,
                 true,
+            );
+        }
+
+        #[test]
+        fn multiple_components() {
+            compare_specs(
+                r#"
+                node a { text: "a"; }
+                node b { text: "b"; }
+                node c { text: "c"; }
+                edge e1 from a to b { text: "a"; }
+                "#,
+                r#"
+                node a { text: "a"; }
+                node b { text: "b"; }
+                node c { text: "d"; }
+                edge e1 from a to b { text: "a"; }
+                "#,
+                false,
             );
         }
     }

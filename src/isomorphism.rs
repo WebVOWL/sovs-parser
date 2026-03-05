@@ -148,7 +148,7 @@ impl GraphSystem {
     }
 
     fn edges_term(&self, left_edges: &[&str], right_edges: &[&str]) -> TermKey {
-        let pairing_terms = pairings(left_edges, right_edges)
+        let pairing_terms = matchings(left_edges, right_edges)
             .map(|pairing| {
                 let term = BoolTerm::Or(
                     pairing
@@ -229,7 +229,7 @@ impl Visited<BitSet<VarKey>> for GraphSystem {
     }
 }
 
-fn pairings<T: Clone, U: Clone>(left: &[T], right: &[U]) -> impl Iterator<Item = Vec<(T, U)>> {
+pub fn matchings<T: Clone, U: Clone>(left: &[T], right: &[U]) -> impl Iterator<Item = Vec<(T, U)>> {
     left.iter()
         .cloned()
         .permutations(left.len())
@@ -243,7 +243,7 @@ mod test {
     fn test_pairings() {
         let left = vec![1, 2, 3];
         let right = vec![4, 5, 6];
-        let pairs: Vec<_> = pairings(&left, &right)
+        let pairs: Vec<_> = matchings(&left, &right)
             .map(|mut p| {
                 p.sort_unstable();
                 p
