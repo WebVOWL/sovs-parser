@@ -24,3 +24,10 @@ lalrpop = "0.23.0"
 
 [features]
 test-suite = ["dep:include_dir"]
+
+[dev-dependencies]
+criterion = "0.8.2"
+
+[[bench]]
+name = "isomorphism"
+harness = false
