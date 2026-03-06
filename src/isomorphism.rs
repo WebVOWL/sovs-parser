@@ -1,254 +1,136 @@
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-};
-
-use itertools::Itertools;
-use radguy::{
-    Arguments, PairUniverse, System, Universe, Visited,
-    arena::Key,
-    extension::TermSystem,
-    set::bitset::{BitSet, BitsetRelation},
-};
-use radguy_ccs::systems::bool::{BoolSystem, BoolSystemImpl, BoolTerm};
-
+use crate::NodeKey;
 use crate::Specification;
+use itertools::Itertools;
+use std::collections::{HashMap, HashSet};
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Default, Debug)]
-pub struct VarKey(usize);
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Default, Debug)]
-pub struct TermKey(usize);
+use itertools::iproduct;
 
-impl From<usize> for VarKey {
-    fn from(value: usize) -> Self {
-        Self(value)
-    }
-}
-
-impl Key for VarKey {
-    fn index(&self) -> usize {
-        self.0
-    }
-}
-
-impl From<usize> for TermKey {
-    fn from(value: usize) -> Self {
-        Self(value)
-    }
-}
-
-impl Key for TermKey {
-    fn index(&self) -> usize {
-        self.0
-    }
-}
-
-#[derive(Hash, PartialEq, Eq, Clone, Debug)]
-pub enum VarName {
-    Node(String, String),
-    Edge(String, String),
-}
-
-impl Default for VarName {
-    fn default() -> Self {
-        Self::Node(String::new(), String::new())
-    }
-}
-
-pub struct GraphSystem {
-    bool_system: RefCell<BoolSystemImpl<VarKey, TermKey, VarName>>,
-    left_spec: Specification,
-    right_spec: Specification,
-    locked: bool,
-}
-
-impl GraphSystem {
+impl Specification {
+    // Implementation of VF2 algorithm for graph isomorphism
     #[must_use]
-    pub fn new(left_spec: Specification, right_spec: Specification) -> Self {
-        Self {
-            bool_system: RefCell::default(),
-            left_spec,
-            right_spec,
-            locked: false,
-        }
-    }
-
-    #[must_use]
-    pub fn node_variable(&self, left: String, right: String) -> VarKey {
-        self.bool_system
-            .borrow_mut()
-            .names
-            .get_or_insert_key(VarName::Node(left, right))
-    }
-
-    fn expand(&self, key: VarKey) {
-        let name = self.bool_system.borrow().names.get_value(key).clone();
-        let definition = self.build_definition(&name);
-        let term = self
-            .bool_system
-            .borrow_mut()
-            .terms
-            .get_or_insert_key(definition);
-        self.bool_system.borrow_mut().definitions.insert(key, term);
-    }
-
-    fn build_definition(&self, var: &VarName) -> BoolTerm<VarKey, TermKey> {
-        match var {
-            VarName::Node(l, r) => {
-                if self
-                    .left_spec
-                    .nodes
-                    .get(l)
-                    .expect("node should have properties")
-                    != self
-                        .right_spec
-                        .nodes
-                        .get(r)
-                        .expect("node should have properties")
-                    || self.left_spec.in_edges(l).len() != self.right_spec.in_edges(r).len()
-                    || self.left_spec.out_edges(l).len() != self.right_spec.out_edges(r).len()
-                {
-                    return BoolTerm::True;
-                }
-                let ins = self.edges_term(
-                    &self.left_spec.in_edges(l).into_iter().collect::<Vec<_>>(),
-                    &self.right_spec.in_edges(r).into_iter().collect::<Vec<_>>(),
-                );
-                let outs = self.edges_term(
-                    &self.left_spec.out_edges(l).into_iter().collect::<Vec<_>>(),
-                    &self.right_spec.out_edges(r).into_iter().collect::<Vec<_>>(),
-                );
-                BoolTerm::Or(vec![ins, outs])
-            }
-            VarName::Edge(l, r) => {
-                let left_edge = self.left_spec.edges.get(l).expect("left edge should exist");
-                let right_edge = self
-                    .right_spec
-                    .edges
-                    .get(r)
-                    .expect("right edge should exist");
-                if left_edge.properties != right_edge.properties {
-                    return BoolTerm::True;
-                }
-                let mut bool_system = self.bool_system.borrow_mut();
-                let to = bool_system
-                    .names
-                    .get_or_insert_key(VarName::Node(left_edge.to.clone(), right_edge.to.clone()));
-                let from = bool_system.names.get_or_insert_key(VarName::Node(
-                    left_edge.from.clone(),
-                    right_edge.from.clone(),
-                ));
-                let to_term = bool_system.terms.get_or_insert_key(BoolTerm::Variable(to));
-                let from_term = bool_system
-                    .terms
-                    .get_or_insert_key(BoolTerm::Variable(from));
-
-                BoolTerm::Or(vec![to_term, from_term])
-            }
-        }
-    }
-
-    fn edges_term(&self, left_edges: &[&str], right_edges: &[&str]) -> TermKey {
-        let pairing_terms = matchings(left_edges, right_edges)
-            .map(|pairing| {
-                let term = BoolTerm::Or(
-                    pairing
-                        .into_iter()
-                        .map(|(l, r)| self.edge_pair_to_term_key(l.to_string(), r.to_string()))
-                        .collect(),
-                );
-                self.bool_system.borrow_mut().terms.get_or_insert_key(term)
-            })
-            .collect();
-        self.bool_system
-            .borrow_mut()
-            .terms
-            .get_or_insert_key(BoolTerm::And(pairing_terms))
-    }
-
-    fn edge_pair_to_term_key(&self, left: String, right: String) -> TermKey {
-        let name = VarName::Edge(left, right);
-        let key = self.bool_system.borrow_mut().names.get_or_insert_key(name);
-        self.bool_system
-            .borrow_mut()
-            .terms
-            .get_or_insert_key(BoolTerm::Variable(key))
-    }
-
-    fn ensure_variable_defined(&self, variable: VarKey) {
-        let term_key = {
-            let sys = self.bool_system.borrow();
-            sys.definitions.get(variable).copied()
-        };
-
-        if term_key.is_none() {
-            self.expand(variable);
-        }
-    }
-}
-
-impl System<VarKey, bool> for GraphSystem {
-    fn evaluate(&self, key: VarKey, assignment: &HashMap<VarKey, bool>) -> bool {
-        self.ensure_variable_defined(key);
-        self.bool_system.borrow().evaluate(key, assignment)
-    }
-
-    fn bottom_assignment(&self) -> HashMap<VarKey, bool> {
-        HashMap::new()
-    }
-
-    fn lock(&mut self) {
-        self.locked = true;
-    }
-
-    fn unlock(&mut self) {
-        self.locked = false;
-    }
-}
-
-impl Universe<BitSet<VarKey>> for GraphSystem {
-    fn universe(&self) -> BitSet<VarKey> {
-        self.bool_system.borrow().universe()
-    }
-}
-
-impl PairUniverse<BitsetRelation<VarKey, VarKey>> for GraphSystem {
-    fn pair_universe(&self) -> BitsetRelation<VarKey, VarKey> {
-        self.bool_system.borrow().pair_universe()
-    }
-}
-
-impl Arguments<VarKey, HashSet<VarKey>> for GraphSystem {
-    fn arguments(&self, key: VarKey) -> HashSet<VarKey> {
-        self.bool_system.borrow().arguments(key)
-    }
-}
-
-impl Visited<BitSet<VarKey>> for GraphSystem {
-    fn visited(&self) -> BitSet<VarKey> {
-        self.bool_system.borrow().visited()
-    }
-}
-
-impl TermSystem<VarKey, bool, TermKey> for GraphSystem {
-    fn definition(&self, variable: VarKey) -> TermKey {
-        self.bool_system.borrow().definition(variable)
-    }
-}
-
-impl BoolSystem<VarKey, TermKey, VarName> for GraphSystem {
-    fn get_term(&self, term_key: TermKey) -> BoolTerm<VarKey, TermKey> {
-        self.bool_system.borrow().get_term(term_key)
-    }
-
-    fn evaluate_term(
+    pub fn match_graphs(
         &self,
-        term_key: TermKey,
-        assignment: &dyn radguy::Assignment<VarKey, bool>,
-    ) -> bool {
-        self.bool_system
-            .borrow()
-            .evaluate_term(term_key, assignment)
+        other: &Self,
+        matching: &HashMap<NodeKey, NodeKey>,
+    ) -> Option<HashMap<NodeKey, NodeKey>> {
+        if matching.len() == self.nodes.len() {
+            return Some(matching.clone());
+        }
+
+        let candidates = self.compute_pairs(other, matching);
+
+        for (a, b) in candidates
+            .iter()
+            .filter(|(a, b)| self.is_node_matching_feasible(other, a, b))
+        {
+            let mut m = matching.clone();
+            m.insert(a.clone(), b.clone());
+            if let Some(new_matching) = self.match_graphs(other, &m) {
+                return Some(new_matching);
+            }
+        }
+
+        None
+    }
+
+    fn compute_pairs(
+        &self,
+        other: &Self,
+        matching: &HashMap<NodeKey, NodeKey>,
+    ) -> HashSet<(NodeKey, NodeKey)> {
+        let in_candidates = matching.iter().flat_map(|(a, b)| {
+            let self_in = self
+                .in_edges(a)
+                .into_iter()
+                .map(|e| &self.edges.get(e).expect("self in edge should exist").from)
+                .filter(|from| !matching.contains_key(*from))
+                .collect::<Vec<_>>();
+            let other_in = self
+                .in_edges(b)
+                .into_iter()
+                .map(|e| &other.edges.get(e).expect("other in edge should exist").from)
+                .filter(|from| !matching.values().any(|matched| *from == matched))
+                .collect::<Vec<_>>();
+            iproduct!(self_in, other_in)
+        });
+        let out_candidates = matching.iter().flat_map(|(a, b)| {
+            let self_out = self
+                .out_edges(a)
+                .into_iter()
+                .map(|e| &self.edges.get(e).expect("self out edge should exist").to)
+                .filter(|to| !matching.contains_key(*to))
+                .collect::<Vec<_>>();
+            let other_out = self
+                .out_edges(b)
+                .into_iter()
+                .map(|e| {
+                    &other
+                        .edges
+                        .get(e)
+                        .expect("other out edge should exist")
+                        .from
+                })
+                .filter(|to| !matching.values().any(|matched| *to == matched))
+                .collect::<Vec<_>>();
+            iproduct!(self_out, other_out)
+        });
+        let ret: HashSet<(NodeKey, NodeKey)> = in_candidates
+            .chain(out_candidates)
+            .map(|(a, b)| (a.clone(), b.clone()))
+            .collect();
+
+        if !ret.is_empty() {
+            return ret;
+        }
+
+        // if there are no candidates, match an arbitrary unmatched node from other with all unmatched nodes from self
+        let other_node = other
+            .nodes
+            .keys()
+            .find(|n| !matching.values().any(|matched| *n == matched))
+            .expect("other candidate should exist");
+        self.nodes
+            .keys()
+            .filter(|n| !matching.contains_key(*n))
+            .map(|n| (n.clone(), other_node.clone()))
+            .collect()
+    }
+
+    fn is_node_matching_feasible(&self, other: &Self, a: &str, b: &str) -> bool {
+        let self_node = self.nodes.get(a).expect("self node should exist");
+        let other_node = other.nodes.get(b).expect("other node should exist");
+        if self_node.properties != other_node.properties {
+            return false;
+        }
+
+        let self_in = self.in_edges(a).into_iter().collect::<Vec<_>>();
+        let self_out = self.out_edges(a).into_iter().collect::<Vec<_>>();
+        let other_in = other.in_edges(b).into_iter().collect::<Vec<_>>();
+        let other_out = other.out_edges(b).into_iter().collect::<Vec<_>>();
+
+        if self_in.len() != other_in.len() || self_out.len() != other_out.len() {
+            return false;
+        }
+
+        matchings(&self_in, &other_in).any(|m| {
+            m.into_iter()
+                .map(|(l, r)| {
+                    (
+                        self.edges.get(l).expect("self edge should exist"),
+                        other.edges.get(r).expect("other edge should exist"),
+                    )
+                })
+                .all(|(l, r)| l.properties == r.properties)
+        }) && matchings(&self_out, &other_out).any(|m| {
+            m.into_iter()
+                .map(|(l, r)| {
+                    (
+                        self.edges.get(l).expect("self edge should exist"),
+                        other.edges.get(r).expect("other edge should exist"),
+                    )
+                })
+                .all(|(l, r)| l.properties == r.properties)
+        })
     }
 }
 
@@ -263,7 +145,7 @@ pub fn matchings<T: Clone, U: Clone>(left: &[T], right: &[U]) -> impl Iterator<I
 mod test {
     use super::*;
     #[test]
-    fn test_pairings() {
+    fn test_matchings() {
         let left = vec![1, 2, 3];
         let right = vec![4, 5, 6];
         let pairs: Vec<_> = matchings(&left, &right)

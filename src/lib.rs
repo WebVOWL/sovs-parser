@@ -3,8 +3,6 @@ use lalrpop_util::{ParseError, lalrpop_mod};
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
-use crate::isomorphism::GraphSystem;
-
 mod isomorphism;
 #[cfg(feature = "test-suite")]
 mod test_suite;
@@ -50,16 +48,19 @@ impl<const N: usize> From<[(&str, &str); N]> for Properties {
     }
 }
 
+type NodeKey = String;
+type EdgeKey = String;
+
 #[derive(Default, PartialEq, Eq, Clone, Debug)]
 pub(crate) struct Definitions {
-    nodes: HashMap<String, NodeDefinition>,
-    edges: HashMap<String, EdgeDefinition>,
+    nodes: HashMap<NodeKey, NodeDefinition>,
+    edges: HashMap<EdgeKey, EdgeDefinition>,
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub(crate) enum Definition {
-    Node(String, NodeDefinition),
-    Edge(String, EdgeDefinition),
+    Node(NodeKey, NodeDefinition),
+    Edge(EdgeKey, EdgeDefinition),
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -69,15 +70,15 @@ pub struct NodeDefinition {
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct EdgeDefinition {
-    pub from: String,
-    pub to: String,
+    pub from: NodeKey,
+    pub to: NodeKey,
     pub properties: Properties,
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Specification {
-    pub nodes: HashMap<String, NodeDefinition>,
-    pub edges: HashMap<String, EdgeDefinition>,
+    pub nodes: HashMap<NodeKey, NodeDefinition>,
+    pub edges: HashMap<EdgeKey, EdgeDefinition>,
 }
 
 impl Specification {
@@ -121,26 +122,7 @@ impl Specification {
     /// with different labelings
     #[must_use]
     pub fn is_isomorphic_to(&self, other: &Self) -> bool {
-        if self.nodes.len() != other.nodes.len() || self.edges.len() != other.edges.len() {
-            return false;
-        }
-
-        let self_nodes = self.nodes.keys().cloned().collect::<Vec<_>>();
-        let other_nodes = other.nodes.keys().cloned().collect::<Vec<_>>();
-
-        let mut system = GraphSystem::new(self.clone(), other.clone());
-        let oracle = radguy_ccs::systems::bool::extension::BoolExtension::bitset().as_oracle();
-
-        let matchings = isomorphism::matchings(&self_nodes, &other_nodes);
-
-        // PERF: for optimal performance, this should maybe become a variable in the graph so we
-        // can reuse work
-        matchings.into_iter().any(|matching| {
-            matching.into_iter().all(|(self_node, other_node)| {
-                let target = system.node_variable(self_node, other_node);
-                !radguy::kleene_local(&mut system, target, &oracle).0
-            })
-        })
+        self.match_graphs(other, &HashMap::new()).is_some()
     }
 }
 
@@ -517,6 +499,111 @@ mod test {
         }
 
         #[test]
+        fn self_cycle_pos() {
+            compare_specs(
+                r#"
+                node a { text: "a"; }
+                edge e1 from a to a { text: "a"; }
+                "#,
+                r#"
+                node b { text: "a"; }
+                edge e1 from b to b { text: "a"; }
+                "#,
+                true,
+            );
+        }
+
+        #[test]
+        fn self_cycle_neg_node() {
+            compare_specs(
+                r#"
+                node a { text: "a"; }
+                edge e1 from a to a { text: "a"; }
+                "#,
+                r#"
+                node b { text: "b"; }
+                edge e1 from b to b { text: "a"; }
+                "#,
+                false,
+            );
+        }
+
+        #[test]
+        fn self_cycle_multiple_edges_pos() {
+            compare_specs(
+                r#"
+                node a { text: "a"; }
+                edge e1 from a to a { text: "a"; }
+                edge e2 from a to a { text: "a"; }
+                edge e3 from a to a { text: "b"; }
+                "#,
+                r#"
+                node b { text: "a"; }
+                edge e1 from b to b { text: "a"; }
+                edge e2 from b to b { text: "a"; }
+                edge e3 from b to b { text: "b"; }
+                "#,
+                true,
+            );
+        }
+
+        #[test]
+        fn self_cycle_multiple_edges_neg_node() {
+            compare_specs(
+                r#"
+                node a { text: "a"; }
+                edge e1 from a to a { text: "a"; }
+                edge e2 from a to a { text: "a"; }
+                edge e3 from a to a { text: "b"; }
+                "#,
+                r#"
+                node b { text: "b"; }
+                edge e1 from b to b { text: "a"; }
+                edge e2 from b to b { text: "a"; }
+                edge e3 from b to b { text: "b"; }
+                "#,
+                false,
+            );
+        }
+
+        #[test]
+        fn self_cycle_multiple_edges_neg_edge() {
+            compare_specs(
+                r#"
+                node a { text: "a"; }
+                edge e1 from a to a { text: "a"; }
+                edge e2 from a to a { text: "a"; }
+                edge e3 from a to a { text: "b"; }
+                "#,
+                r#"
+                node b { text: "a"; }
+                edge e1 from b to b { text: "a"; }
+                edge e2 from b to b { text: "a"; }
+                edge e3 from b to b { text: "c"; }
+                "#,
+                false,
+            );
+        }
+
+        #[test]
+        fn self_cycle_multiple_edges_neg_edge_count() {
+            compare_specs(
+                r#"
+                node a { text: "a"; }
+                edge e1 from a to a { text: "a"; }
+                edge e2 from a to a { text: "a"; }
+                edge e3 from a to a { text: "a"; }
+                "#,
+                r#"
+                node b { text: "a"; }
+                edge e1 from b to b { text: "a"; }
+                edge e2 from b to b { text: "a"; }
+                "#,
+                false,
+            );
+        }
+
+        #[test]
         fn cycle_2() {
             compare_specs(
                 r#"
@@ -573,6 +660,101 @@ mod test {
                 node c { text: "d"; }
                 edge e1 from a to b { text: "a"; }
                 "#,
+                false,
+            );
+        }
+
+        #[test]
+        fn multiple_edges_same_props_pos() {
+            compare_specs(
+                r#"
+            node a {}
+            node b {}
+            edge e1 from a to b { text: "a"; }
+            edge e2 from a to b { text: "a"; }
+            "#,
+                r#"
+            node a {}
+            node b {}
+            edge e1 from b to a { text: "a"; }
+            edge e2 from b to a { text: "a"; }
+            "#,
+                true,
+            );
+        }
+
+        #[test]
+        fn multiple_edges_same_props_neg() {
+            compare_specs(
+                r#"
+            node a {}
+            node b {}
+            edge e1 from a to b { text: "a"; }
+            edge e2 from a to b { text: "a"; }
+            "#,
+                r#"
+            node a { text: "a"; }
+            node b {}
+            edge e1 from b to a { text: "a"; }
+            edge e2 from b to a { text: "a"; }
+            "#,
+                false,
+            );
+        }
+
+        #[test]
+        fn multiple_edges_different_props_pos() {
+            compare_specs(
+                r#"
+            node a {}
+            node b {}
+            edge e1 from a to b { text: "a"; }
+            edge e2 from a to b { text: "b"; }
+            "#,
+                r#"
+            node a {}
+            node b {}
+            edge e1 from b to a { text: "a"; }
+            edge e2 from b to a { text: "b"; }
+            "#,
+                true,
+            );
+        }
+
+        #[test]
+        fn multiple_edges_different_props_neg_edge() {
+            compare_specs(
+                r#"
+            node a {}
+            node b {}
+            edge e1 from a to b { text: "a"; }
+            edge e2 from a to b { text: "b"; }
+            "#,
+                r#"
+            node a {}
+            node b {}
+            edge e1 from b to a { text: "a"; }
+            edge e2 from b to a { text: "c"; }
+            "#,
+                false,
+            );
+        }
+
+        #[test]
+        fn multiple_edges_different_props_neg_node() {
+            compare_specs(
+                r#"
+            node a {}
+            node b {}
+            edge e1 from a to b { text: "a"; }
+            edge e2 from a to b { text: "b"; }
+            "#,
+                r#"
+            node a { text: "b"; }
+            node b {}
+            edge e1 from b to a { text: "a"; }
+            edge e2 from b to a { text: "b"; }
+            "#,
                 false,
             );
         }
