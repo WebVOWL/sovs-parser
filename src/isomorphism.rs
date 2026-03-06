@@ -7,9 +7,10 @@ use itertools::Itertools;
 use radguy::{
     Arguments, PairUniverse, System, Universe, Visited,
     arena::Key,
+    extension::TermSystem,
     set::bitset::{BitSet, BitsetRelation},
 };
-use radguy_ccs::systems::bool::{BoolSystemImpl, BoolTerm};
+use radguy_ccs::systems::bool::{BoolSystem, BoolSystemImpl, BoolTerm};
 
 use crate::Specification;
 
@@ -43,7 +44,7 @@ impl Key for TermKey {
 }
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
-enum VarName {
+pub enum VarName {
     Node(String, String),
     Edge(String, String),
 }
@@ -226,6 +227,28 @@ impl Arguments<VarKey, HashSet<VarKey>> for GraphSystem {
 impl Visited<BitSet<VarKey>> for GraphSystem {
     fn visited(&self) -> BitSet<VarKey> {
         self.bool_system.borrow().visited()
+    }
+}
+
+impl TermSystem<VarKey, bool, TermKey> for GraphSystem {
+    fn definition(&self, variable: VarKey) -> TermKey {
+        self.bool_system.borrow().definition(variable)
+    }
+}
+
+impl BoolSystem<VarKey, TermKey, VarName> for GraphSystem {
+    fn get_term(&self, term_key: TermKey) -> BoolTerm<VarKey, TermKey> {
+        self.bool_system.borrow().get_term(term_key)
+    }
+
+    fn evaluate_term(
+        &self,
+        term_key: TermKey,
+        assignment: &dyn radguy::Assignment<VarKey, bool>,
+    ) -> bool {
+        self.bool_system
+            .borrow()
+            .evaluate_term(term_key, assignment)
     }
 }
 

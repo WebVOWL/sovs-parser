@@ -129,7 +129,7 @@ impl Specification {
         let other_nodes = other.nodes.keys().cloned().collect::<Vec<_>>();
 
         let mut system = GraphSystem::new(self.clone(), other.clone());
-        let oracle = radguy::oracle::SMax::bitset();
+        let oracle = radguy_ccs::systems::bool::extension::BoolExtension::bitset().as_oracle();
 
         let matchings = isomorphism::matchings(&self_nodes, &other_nodes);
 
