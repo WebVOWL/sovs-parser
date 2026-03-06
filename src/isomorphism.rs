@@ -126,7 +126,7 @@ impl GraphSystem {
                     .right_spec
                     .edges
                     .get(r)
-                    .expect("rihgt edge should exist");
+                    .expect("right edge should exist");
                 if left_edge.properties != right_edge.properties {
                     return BoolTerm::True;
                 }

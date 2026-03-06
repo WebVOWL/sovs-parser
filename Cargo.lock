@@ -731,7 +731,7 @@ dependencies = [
 [[package]]
 name = "radguy"
 version = "0.1.0"
-source = "git+https://github.com/DATP7/radguy?branch=vowl-tweaks#18c803cec9301cc123ff001764d9df701f680443"
+source = "git+https://github.com/DATP7/radguy?branch=vowl-tweaks#0e2575194ac9f23035fab3eacbf936a184bfa29f"
 dependencies = [
  "fixedbitset",
  "itertools 0.14.0",
@@ -742,7 +742,7 @@ dependencies = [
 [[package]]
 name = "radguy-ccs"
 version = "0.1.0"
-source = "git+https://github.com/DATP7/radguy?branch=vowl-tweaks#18c803cec9301cc123ff001764d9df701f680443"
+source = "git+https://github.com/DATP7/radguy?branch=vowl-tweaks#0e2575194ac9f23035fab3eacbf936a184bfa29f"
 dependencies = [
  "chrono",
  "itertools 0.14.0",

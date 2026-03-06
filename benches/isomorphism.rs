@@ -37,6 +37,46 @@ fn isomorphisms(c: &mut Criterion) {
                 ",
         );
     });
+
+    g.bench_function("multiple_components", |b| {
+        bench_isomorphism(
+            b,
+            r#"
+                node a { text: "a"; }
+                node b { text: "b"; }
+                node c { text: "c"; }
+                edge e1 from a to b { text: "a"; }
+                "#,
+            r#"
+                node a { text: "a"; }
+                node b { text: "b"; }
+                node c { text: "d"; }
+                edge e1 from a to b { text: "a"; }
+                "#,
+        );
+    });
+
+    g.bench_function("cycle_3", |b| {
+        bench_isomorphism(
+            b,
+            r#"
+                node a { text: "a"; }
+                node b { text: "b"; }
+                node c { text: "c"; }
+                edge e1 from a to b { text: "a"; }
+                edge e2 from b to c { text: "b"; }
+                edge e3 from c to a { text: "c"; }
+                "#,
+            r#"
+                node a { text: "a"; }
+                node b { text: "b"; }
+                node c { text: "c"; }
+                edge e1 from a to b { text: "a"; }
+                edge e2 from b to c { text: "b"; }
+                edge e3 from c to a { text: "c"; }
+                "#,
+        );
+    });
 }
 
 criterion_group!(benches, isomorphisms);
