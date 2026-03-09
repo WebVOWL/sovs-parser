@@ -63,3 +63,13 @@ pub fn test_cases() -> impl Iterator<Item = TestCase> {
             })
         })
 }
+
+#[cfg(test)]
+mod test {
+    use crate::test_cases;
+
+    #[test]
+    fn all_test_cases_compile() {
+        for _ in test_cases() {}
+    }
+}
