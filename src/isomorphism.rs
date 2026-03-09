@@ -45,7 +45,7 @@ impl Specification {
                 .map(|e| &self.edges.get(e).expect("self in edge should exist").from)
                 .filter(|from| !matching.contains_key(*from))
                 .collect::<Vec<_>>();
-            let other_in = self
+            let other_in = other
                 .in_edges(b)
                 .into_iter()
                 .map(|e| &other.edges.get(e).expect("other in edge should exist").from)
@@ -60,16 +60,10 @@ impl Specification {
                 .map(|e| &self.edges.get(e).expect("self out edge should exist").to)
                 .filter(|to| !matching.contains_key(*to))
                 .collect::<Vec<_>>();
-            let other_out = self
+            let other_out = other
                 .out_edges(b)
                 .into_iter()
-                .map(|e| {
-                    &other
-                        .edges
-                        .get(e)
-                        .expect("other out edge should exist")
-                        .from
-                })
+                .map(|e| &other.edges.get(e).expect("other out edge should exist").to)
                 .filter(|to| !matching.values().any(|matched| *to == matched))
                 .collect::<Vec<_>>();
             iproduct!(self_out, other_out)

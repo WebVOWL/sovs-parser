@@ -419,6 +419,19 @@ mod test {
         }
 
         #[test]
+        fn single_node_same_props() {
+            compare_specs(
+                r#"
+                node a { text: "a"; kind: "owl:class"; }
+                "#,
+                r#"
+                node a { kind: "owl:class"; text: "a"; }
+                "#,
+                true,
+            );
+        }
+
+        #[test]
         fn single_edge_different_props() {
             compare_specs(
                 r#"
