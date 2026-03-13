@@ -1,0 +1,3 @@
+node a { text: "A"; kind: "owl:class"; }
+node b { text: "B"; kind: "owl:complementOf"; }
+edge e from a to b { kind: "setRelation"; }

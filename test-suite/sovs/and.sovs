@@ -1,10 +1,8 @@
-node a { text: "A"; kind: "owl:class"; }
+node a { text: "A"; kind: "owl:intersectionOf"; }
 node b { text: "B"; kind: "owl:class"; }
 node c { text: "C"; kind: "owl:class"; }
 node d { text: "D"; kind: "owl:class"; }
-node intersection { kind: "anonymous"; }
 
-edge intA from a to intersection { kind: "rdfs:subClassOf"; text: "Subclass Of"; }
-edge intB from intersection to b { kind: "setRelation"; }
-edge intC from intersection to c { kind: "setRelation"; }
-edge intD from intersection to d { kind: "setRelation"; }
+edge intB from b to a { kind: "setRelation"; }
+edge intC from c to a { kind: "setRelation"; }
+edge intD from d to a { kind: "setRelation"; }

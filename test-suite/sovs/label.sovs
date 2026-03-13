@@ -1,0 +1,1 @@
+node a { text: "Some Label"; kind: "owl:class"; }

@@ -1,0 +1,2 @@
+node t { text: "Thing"; kind: "owl:thing"; }
+edge r from t to t { text: "r"; kind: "owl:objectProperty"; characteristic: "owl:symmetricProperty"; }

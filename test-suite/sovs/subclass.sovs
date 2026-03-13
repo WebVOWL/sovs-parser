@@ -1,0 +1,3 @@
+node a { text: "A"; kind: "owl:class"; }
+node b { text: "B"; kind: "owl:class"; }
+edge s from b to a { text: "Subclass of"; kind: "rdfs:subclassOf"; }

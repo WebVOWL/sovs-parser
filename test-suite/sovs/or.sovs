@@ -1,0 +1,8 @@
+node a { text: "A"; kind: "owl:unionOf"; }
+node b { text: "B"; kind: "owl:class"; }
+node c { text: "C"; kind: "owl:class"; }
+node d { text: "D"; kind: "owl:class"; }
+
+edge eb from b to a { kind: "setRelation"; }
+edge ec from c to a { kind: "setRelation"; }
+edge ed from d to a { kind: "setRelation"; }

@@ -1,0 +1,3 @@
+node a { text: "A"; kind: "owl:class"; }
+node b { text: "B"; kind: "owl:class"; }
+edge r from b to a { text: "r"; kind: "owl:objectProperty"; cardinality: "∃"; }

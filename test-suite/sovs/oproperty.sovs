@@ -1,0 +1,2 @@
+node t { text: "Thing"; kind: "owl:thing"; }
+edge z from t to t { text: "z"; kind: "owl:objectProperty"; }

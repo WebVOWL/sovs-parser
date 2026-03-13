@@ -1,0 +1,3 @@
+node t { text: "Thing"; kind: "owl:thing"; }
+edge r from t to t { kind: "owl:objectProperty"; inverseOf: "s"; }
+edge s from t to t { kind: "owl:objectProperty"; }

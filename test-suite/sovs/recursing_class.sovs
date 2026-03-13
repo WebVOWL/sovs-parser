@@ -1,0 +1,2 @@
+node x { text: "X"; kind: "owl:class"; }
+edge r from x to x { text: "r"; kind: "owl:objectProperty"; characteristic: "∃"; }
