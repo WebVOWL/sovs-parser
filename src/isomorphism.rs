@@ -93,7 +93,7 @@ impl Specification {
     fn is_node_matching_feasible(&self, other: &Self, a: &str, b: &str) -> bool {
         let self_node = self.nodes.get(a).expect("self node should exist");
         let other_node = other.nodes.get(b).expect("other node should exist");
-        if self_node.properties != other_node.properties {
+        if !self_node.properties.eq_ignore_case(&other_node.properties) {
             return false;
         }
 
@@ -114,7 +114,7 @@ impl Specification {
                         other.edges.get(r).expect("other edge should exist"),
                     )
                 })
-                .all(|(l, r)| l.properties == r.properties)
+                .all(|(l, r)| l.properties.eq_ignore_case(&r.properties))
         }) && matchings(&self_out, &other_out).any(|m| {
             m.into_iter()
                 .map(|(l, r)| {
@@ -123,7 +123,7 @@ impl Specification {
                         other.edges.get(r).expect("other edge should exist"),
                     )
                 })
-                .all(|(l, r)| l.properties == r.properties)
+                .all(|(l, r)| l.properties.eq_ignore_case(&r.properties))
         })
     }
 }

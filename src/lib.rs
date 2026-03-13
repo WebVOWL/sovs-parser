@@ -36,6 +36,20 @@ impl Properties {
         }
         bag.iter().next().map(String::as_ref)
     }
+
+    #[must_use]
+    pub fn eq_ignore_case(&self, other: &Self) -> bool {
+        self.to_lowercase() == other.to_lowercase()
+    }
+
+    fn to_lowercase(&self) -> Self {
+        let self_lower = self
+            .0
+            .iter()
+            .map(|(k, vs)| (k.clone(), vs.iter().map(|v| v.to_lowercase()).collect()))
+            .collect();
+        Self(self_lower)
+    }
 }
 
 impl<const N: usize> From<[(&str, &str); N]> for Properties {
@@ -769,6 +783,36 @@ mod test {
             edge e2 from b to a { text: "b"; }
             "#,
                 false,
+            );
+        }
+
+        #[test]
+        fn node_properties_case_insensitive() {
+            compare_specs(
+                r#"
+            node a { text: "A"; }
+            "#,
+                r#"
+            node a { text: "a"; }
+            "#,
+                true,
+            );
+        }
+
+        #[test]
+        fn edge_properties_case_insensitive() {
+            compare_specs(
+                r#"
+            node a { text: "A"; }
+            node b {}
+            edge e from a to b { text: "B"; }
+            "#,
+                r#"
+            node a { text: "A"; }
+            node b {}
+            edge e from a to b { text: "b"; }
+            "#,
+                true,
             );
         }
     }
