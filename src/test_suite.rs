@@ -70,6 +70,8 @@ mod test {
 
     #[test]
     fn all_test_cases_compile() {
-        for _ in test_cases() {}
+        for x in test_cases() {
+            std::hint::black_box(x);
+        }
     }
 }
