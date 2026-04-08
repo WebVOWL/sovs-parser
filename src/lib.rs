@@ -10,6 +10,8 @@ mod test_suite;
 #[cfg(feature = "test-suite")]
 pub use test_suite::{TestCase, test_cases};
 
+use crate::isomorphism::{GraphSystem, PropertyMappingKind, get_property_mapping_kind};
+
 lalrpop_mod!(
     #[allow(clippy::all, clippy::pedantic, clippy::nursery, clippy::unwrap_used)]
     #[rustfmt::skip]
@@ -40,6 +42,39 @@ impl Properties {
     #[must_use]
     pub fn eq_ignore_case(&self, other: &Self) -> bool {
         self.to_lowercase() == other.to_lowercase()
+    }
+
+    #[must_use]
+    pub fn unmapped(&self) -> Self {
+        let mut unmapped = self.clone();
+        unmapped
+            .0
+            .retain(|k, _| get_property_mapping_kind(k).is_none());
+        unmapped
+    }
+
+    #[must_use]
+    pub fn edge_mapped(&self) -> Self {
+        let mut mapped = self.clone();
+        mapped.0.retain(|k, _| {
+            matches!(
+                get_property_mapping_kind(k),
+                Some(PropertyMappingKind::Edge)
+            )
+        });
+        mapped
+    }
+
+    #[must_use]
+    pub fn node_mapped(&self) -> Self {
+        let mut mapped = self.clone();
+        mapped.0.retain(|k, _| {
+            matches!(
+                get_property_mapping_kind(k),
+                Some(PropertyMappingKind::Node)
+            )
+        });
+        mapped
     }
 
     fn to_lowercase(&self) -> Self {
@@ -136,7 +171,26 @@ impl Specification {
     /// with different labelings
     #[must_use]
     pub fn is_isomorphic_to(&self, other: &Self) -> bool {
-        self.match_graphs(other, &HashMap::new()).is_some()
+        if self.nodes.len() != other.nodes.len() || self.edges.len() != other.edges.len() {
+            return false;
+        }
+
+        let self_nodes = self.nodes.keys().cloned().collect::<Vec<_>>();
+        let other_nodes = other.nodes.keys().cloned().collect::<Vec<_>>();
+
+        let mut system = GraphSystem::new(self.clone(), other.clone());
+        let oracle = radguy_ccs::systems::bool::extension::BoolExtension::bitset().as_oracle();
+
+        let matchings = isomorphism::matchings(&self_nodes, &other_nodes);
+
+        // PERF: for optimal performance, this should maybe become a variable in the graph so we
+        // can reuse work
+        matchings.into_iter().any(|matching| {
+            matching.into_iter().all(|(self_node, other_node)| {
+                let target = system.node_variable(self_node, other_node);
+                !radguy::kleene_local(&mut system, target, &oracle).0
+            })
+        })
     }
 }
 
