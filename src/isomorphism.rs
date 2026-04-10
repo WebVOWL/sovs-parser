@@ -421,9 +421,11 @@ mod test {
     }
 
     fn compare_specs(a: &str, b: &str, eq: bool) {
-        let a = Specification::parse(a).expect("spec a should parse");
-        let b = Specification::parse(b).expect("spec b should parse");
-        assert_eq!(eq, a.is_isomorphic_to(&b));
+        for _ in 0..100 {
+            let a = Specification::parse(a).expect("spec a should parse");
+            let b = Specification::parse(b).expect("spec b should parse");
+            assert_eq!(eq, a.is_isomorphic_to(&b));
+        }
     }
 
     #[test]
