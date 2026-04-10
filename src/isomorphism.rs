@@ -1010,4 +1010,21 @@ mod test {
             false,
         );
     }
+
+    #[test]
+    fn mapped_node_properties_different_sets() {
+        compare_specs(
+            r#"
+            node a { text: "A"; }
+            node b { text: "B"; }
+            node c { text: "C"; }
+        "#,
+            r#"
+            node x { text: "A"; equivalentTo: "z"; }
+            node y { text: "B"; }
+            node z { text: "C"; }
+        "#,
+            false,
+        );
+    }
 }
