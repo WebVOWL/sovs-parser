@@ -704,7 +704,26 @@ mod test {
     }
 
     #[test]
-    fn multiple_components() {
+    fn multiple_components_pos() {
+        compare_specs(
+            r#"
+                node a { text: "a"; }
+                node b { text: "b"; }
+                node c { text: "c"; }
+                edge e1 from a to b { text: "a"; }
+                "#,
+            r#"
+                node a { text: "a"; }
+                node b { text: "b"; }
+                node c { text: "c"; }
+                edge e1 from a to b { text: "a"; }
+                "#,
+            true,
+        );
+    }
+
+    #[test]
+    fn multiple_components_neg() {
         compare_specs(
             r#"
                 node a { text: "a"; }
