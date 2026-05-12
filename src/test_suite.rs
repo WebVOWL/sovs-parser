@@ -1,3 +1,4 @@
+//! Suite of tests based on the [VOWL](https://web.archive.org/web/20160120220406/http://vowl.visualdataweb.org/v2/) specification.
 use std::path::PathBuf;
 
 use crate::Specification;
@@ -5,13 +6,20 @@ use include_dir::{Dir, DirEntry, include_dir};
 
 static TEST_SUITE_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/test-suite");
 
+/// A single test case
 #[derive(Clone, Debug)]
 pub struct TestCase {
+    /// The expected SOVS graph for this test case.
     pub specification: Specification,
+    /// The source code of the ontology of this test case.
+    /// This may be in OFN, OWL-RDF, TTL, or OWL-XML format.
+    /// The format of this text corresponds to the file extension of [`Self::name`]
     pub text: &'static str,
+    /// The file name of this test case.
     pub name: &'static str,
 }
 
+/// An iterator of each test case in the test suite.
 pub fn test_cases() -> impl Iterator<Item = TestCase> {
     TEST_SUITE_DIR
         .find("**/*")

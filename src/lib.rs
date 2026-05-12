@@ -1,3 +1,12 @@
+//! Reference implementation for the Simple Ontology Visualization Specification (SOVS) language.
+//!
+//! The main type of this crate is the [`Specification`], which represents a SOVS graph.
+//!
+//! # Test suite
+//! `sovs-parser` ships with a suite of tests designed to match the behavior of the [VOWL](https://web.archive.org/web/20160120220406/http://vowl.visualdataweb.org/v2/) specification.
+//! These can be found in the [`test_suite`] module, which enabled through the `test-suite` feature.
+//! Note that enabling this feature will cause the test suite to be embedded into the binary,
+//! so it should probably only be enabled in testing environments.
 use hashbag::HashBag;
 use lalrpop_util::{ParseError, lalrpop_mod};
 use std::collections::{HashMap, HashSet};
@@ -18,19 +27,40 @@ lalrpop_mod!(
     grammar
 );
 
+/// The properties on a node or edge.
+/// Note that properties have bag semantics, i.e. a property with the same key and value may
+/// appear multiple times, and the number of times it appears matters.
 #[derive(PartialEq, Eq, Clone, Default, Debug)]
 pub struct Properties(pub HashMap<String, HashBag<String>>);
 
 impl Properties {
+    /// Create an empty set of properties
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Insert a property
     pub fn insert(&mut self, key: String, value: String) {
         self.0.entry(key).or_default().insert(value);
     }
 
+    /// Get the value of a property with a single value.
+    /// Returns `None` if the key is not defined, or if the property has multiple values, including
+    /// duplicates
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use sovs_parser::Properties;
+    /// let mut props = Properties::new();
+    /// props.insert("key1".to_string(), "value".to_string());
+    /// props.insert("key2".to_string(), "duplicate_value".to_string());
+    /// props.insert("key2".to_string(), "duplicate_value".to_string());
+    ///
+    /// assert_eq!(props.get_single("key1"), Some("value"));
+    /// assert_eq!(props.get_single("key2"), None);
+    /// assert_eq!(props.get_single("unknown_key"), None);
+    /// ```
     pub fn get_single(&self, key: &str) -> Option<&str> {
         let bag = self.0.get(key)?;
         if bag.len() != 1 {
@@ -39,11 +69,31 @@ impl Properties {
         bag.iter().next().map(String::as_ref)
     }
 
+    /// Check whether two sets of properties are equal, ignoring case.
+    ///
+    /// Note that case is only ignored in the values; keys are still case-sensitive.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use sovs_parser::Properties;
+    /// let mut p1 = Properties::new();
+    /// let mut p2 = Properties::new();
+    /// let mut p3 = Properties::new();
+    /// p1.insert("key".to_string(), "hello world".to_string());
+    /// p2.insert("key".to_string(), "hElLo WoRLd".to_string());
+    /// p3.insert("KEY".to_string(), "hElLo WoRLd".to_string());
+    ///
+    /// assert!(p1.eq_ignore_case(&p2));
+    /// assert!(!p1.eq_ignore_case(&p3));
+    /// assert!(!p2.eq_ignore_case(&p3));
+    /// ```
     #[must_use]
     pub fn eq_ignore_case(&self, other: &Self) -> bool {
         self.to_lowercase() == other.to_lowercase()
     }
 
+    /// Get the properties that are not mapped, i.e. the ones that do not correspond to a node or
+    /// edge id. This is μ<sub>0</sub> in the math.
     #[must_use]
     pub fn unmapped(&self) -> Self {
         let mut unmapped = self.clone();
@@ -53,6 +103,8 @@ impl Properties {
         unmapped
     }
 
+    /// Get the properties that are edge mapped, i.e. the ones that correspond to an edge id.
+    /// This is μ<sub>e</sub> in the math.
     #[must_use]
     pub fn edge_mapped(&self) -> Self {
         let mut mapped = self.clone();
@@ -65,6 +117,8 @@ impl Properties {
         mapped
     }
 
+    /// Get the properties that are node mapped, i.e. the ones that correspond to a node id.
+    /// This is μ<sub>v</sub> in the math.
     #[must_use]
     pub fn node_mapped(&self) -> Self {
         let mut mapped = self.clone();
@@ -169,6 +223,27 @@ impl Specification {
 
     /// Check whether two specifications are isomorphic, i.e. whether they are the same graphs but
     /// with different labelings
+    ///
+    /// # Warning
+    /// This method can be quite slow on bigger graphs, so try to keep your test cases as small as
+    /// possible.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use sovs_parser::{Specification, SovsError};
+    /// let a = Specification::parse(r#"
+    ///     node a { text: "A"; }
+    ///     node b { text: "B"; }
+    ///     edge e from a to b { text: "E"; }
+    /// "#)?;
+    /// let b = Specification::parse(r#"
+    ///     edge z from y to x { text: "E"; }
+    ///     node x { text: "B"; }
+    ///     node y { text: "A"; }
+    /// "#)?;
+    /// assert!(a.is_isomorphic_to(&b));
+    /// # Ok::<(), SovsError>(())
+    /// ```
     #[must_use]
     pub fn is_isomorphic_to(&self, other: &Self) -> bool {
         if self.nodes.len() != other.nodes.len() || self.edges.len() != other.edges.len() {
